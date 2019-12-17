@@ -17,7 +17,7 @@ func TestReadMessage(t *testing.T) {
 
 	r := NewReader(bytes.NewReader(wrapWithMarkers([]byte("hello"))))
 
-	m, err := r.ReadMessage()
+	m, err := r.ReadMessage(true)
 	a.NoError(err)
 	if a.NotNil(m) {
 		a.Equal([]byte("hello"), m)
@@ -29,7 +29,7 @@ func TestReadInvalidMessageHeader(t *testing.T) {
 
 	r := NewReader(bytes.NewReader([]byte{0x01}))
 
-	m, err := r.ReadMessage()
+	m, err := r.ReadMessage(true)
 	a.Nil(m)
 	a.Error(err)
 	_, ok := err.(ErrMLLPInvalidHeader)
@@ -42,7 +42,7 @@ func TestReadInvalidMessageBoundary(t *testing.T) {
 
 	r := NewReader(bytes.NewReader([]byte{0x0b, 0x0c, 0x1c, 0x00}))
 
-	m, err := r.ReadMessage()
+	m, err := r.ReadMessage(true)
 	a.Nil(m)
 	a.Error(err)
 	_, ok := err.(ErrMLLPInvalidContent)
@@ -55,7 +55,7 @@ func TestReadShortMessage(t *testing.T) {
 
 	r := NewReader(bytes.NewReader([]byte{0x0b, 0x1c, 0x0d}))
 
-	m, err := r.ReadMessage()
+	m, err := r.ReadMessage(true)
 	a.Nil(m)
 	a.Error(err)
 	_, ok := err.(ErrMLLPInvalidBoundary)
@@ -68,7 +68,7 @@ func TestReadInvalidMessageTrailer(t *testing.T) {
 
 	r := NewReader(bytes.NewReader([]byte{0x0b, 0x0d, 0x1c, 0x00}))
 
-	m, err := r.ReadMessage()
+	m, err := r.ReadMessage(true)
 	a.Nil(m)
 	a.Error(err)
 	_, ok := err.(ErrMLLPMissingTrailer)
@@ -83,7 +83,7 @@ func TestWriter(t *testing.T) {
 
 	w := NewWriter(b)
 
-	a.NoError(w.WriteMessage([]byte("hello")))
+	a.NoError(w.WriteMessage([]byte("hello"), true))
 	a.Equal(wrapWithMarkers([]byte("hello")), b.Bytes())
 }
 
@@ -97,13 +97,13 @@ func TestReadWriter(t *testing.T) {
 
 	rw := NewReadWriter(brw)
 
-	m, err := rw.ReadMessage()
+	m, err := rw.ReadMessage(true)
 	a.NoError(err)
 	if a.NotNil(m) {
 		a.Equal([]byte("input"), m)
 	}
 
-	a.NoError(rw.WriteMessage([]byte("output")))
+	a.NoError(rw.WriteMessage([]byte("output"), true))
 	a.NoError(brw.Flush())
 	a.Equal(wrapWithMarkers([]byte("output")), w.Bytes())
 }
