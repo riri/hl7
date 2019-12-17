@@ -2,8 +2,7 @@ package hl7 // import "fknsrs.biz/p/hl7"
 
 import (
 	"bytes"
-
-	"github.com/facebookgo/stackerr"
+	"fmt"
 )
 
 type (
@@ -28,7 +27,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// possibly contain the required information.
 
 	if len(buf) < 8 {
-		return nil, nil, ErrTooShort(stackerr.Newf("message must be at least eight bytes long; instead was %d", len(buf)))
+		return nil, nil, ErrTooShort(fmt.Errorf("message must be at least eight bytes long; instead was %d", len(buf)))
 	}
 
 	// Every valid HL7 message will begin with `MSH`. This isn't specifically
@@ -37,7 +36,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// quickly.
 
 	if !bytes.HasPrefix(buf, []byte("MSH")) {
-		return nil, nil, ErrInvalidHeader(stackerr.Newf("expected message to begin with MSH; instead found %q", buf[0:3]))
+		return nil, nil, ErrInvalidHeader(fmt.Errorf("expected message to begin with MSH; instead found %q", buf[0:3]))
 	}
 
 	// These are the control characters. `fs` is the field separator, `cs` the
@@ -53,7 +52,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// The spec doesn't actually mandate this, but I can't imagine a case where
 	// it wouldn't be a disaster.
 	if fs == cs || fs == rs || fs == ec || fs == ss || cs == rs || cs == ec || cs == ss || rs == ec || rs == ss || ec == ss {
-		return nil, nil, ErrInvalidHeader(stackerr.Newf("all control characters must be unique"))
+		return nil, nil, ErrInvalidHeader(fmt.Errorf("all control characters must be unique"))
 	}
 
 	d := Delimiters{fs, cs, rs, ec, ss}
@@ -95,7 +94,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// TODO: find out if there are any implementations of HL7 that *actually*
 	// put more data after this header.
 	if len(buf) > 8 && buf[8] != fs {
-		return nil, nil, ErrInvalidHeader(stackerr.Newf("invalid character found after header content; expected \\x%02x but got \\x%02x", fs, buf[8]))
+		return nil, nil, ErrInvalidHeader(fmt.Errorf("invalid character found after header content; expected \\x%02x but got \\x%02x", fs, buf[8]))
 	}
 
 	// These functions are used when we encounter control characters. When we
