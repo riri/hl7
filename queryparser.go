@@ -1,7 +1,7 @@
 package hl7 // import "fknsrs.biz/p/hl7"
 
 import (
-	"github.com/facebookgo/stackerr"
+	"fmt"
 )
 
 type ErrInvalidQuery error
@@ -54,7 +54,7 @@ func ParseQuery(s string) (*Query, error) {
 	}
 
 	if offset != len(s) {
-		return nil, stackerr.Newf("junk data found at position %d", offset)
+		return nil, fmt.Errorf("junk data found at position %d", offset)
 	}
 
 	return &q, nil
@@ -95,7 +95,7 @@ loop:
 		case s[e] == ')':
 			break loop
 		default:
-			return stackerr.Newf("invalid byte (%q) found at offset %d", s[e], e)
+			return fmt.Errorf("invalid byte (%q) found at offset %d", s[e], e)
 		}
 	}
 

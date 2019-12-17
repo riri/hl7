@@ -1,10 +1,8 @@
-hl7
-===
+# hl7
 
-[![GoDoc](https://godoc.org/fknsrs.biz/p/hl7?status.svg)](https://godoc.org/fknsrs.biz/p/hl7)
+## Overview
 
-Overview
---------
+This is a fork of [Conrad Pankoff's HL7 parser](https://github.com/deoxxa/hl7).
 
 HL7v2 stands for "Health Level 7: Version 2" - a specification for shuttling
 clinical data around and between medical institutions. While working on
@@ -19,7 +17,7 @@ Install
 -------
 
 ```
-$ go get fknsrs.biz/p/hl7
+$ go get github.com/riri/hl7
 ```
 
 License

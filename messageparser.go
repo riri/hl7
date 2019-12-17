@@ -2,8 +2,20 @@ package hl7 // import "fknsrs.biz/p/hl7"
 
 import (
 	"bytes"
+	"fmt"
+)
 
-	"github.com/facebookgo/stackerr"
+const (
+	HEADER_SEGMENT = "MSH"
+
+	EOL_CR = '\r'
+	EOL_NL = '\n'
+
+	ESCAPE_FIELD        = 'F'
+	ESCAPE_COMPONENT    = 'S'
+	ESCAPE_REPETITOR    = 'R'
+	ESCAPE_ESCAPE       = 'E'
+	ESCAPE_SUBCOMPONENT = 'T'
 )
 
 type (
@@ -28,7 +40,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// possibly contain the required information.
 
 	if len(buf) < 8 {
-		return nil, nil, ErrTooShort(stackerr.Newf("message must be at least eight bytes long; instead was %d", len(buf)))
+		return nil, nil, ErrTooShort(fmt.Errorf("message must be at least eight bytes long; instead was %d", len(buf)))
 	}
 
 	// Every valid HL7 message will begin with `MSH`. This isn't specifically
@@ -36,8 +48,8 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// safely come to this conclusion. This allows us to reject junk data pretty
 	// quickly.
 
-	if !bytes.HasPrefix(buf, []byte("MSH")) {
-		return nil, nil, ErrInvalidHeader(stackerr.Newf("expected message to begin with MSH; instead found %q", buf[0:3]))
+	if !bytes.HasPrefix(buf, []byte(HEADER_SEGMENT)) {
+		return nil, nil, ErrInvalidHeader(fmt.Errorf("expected message to begin with %s; instead found %q", HEADER_SEGMENT, buf[0:3]))
 	}
 
 	// These are the control characters. `fs` is the field separator, `cs` the
@@ -52,8 +64,14 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 
 	// The spec doesn't actually mandate this, but I can't imagine a case where
 	// it wouldn't be a disaster.
-	if fs == cs || fs == rs || fs == ec || fs == ss || cs == rs || cs == ec || cs == ss || rs == ec || rs == ss || ec == ss {
-		return nil, nil, ErrInvalidHeader(stackerr.Newf("all control characters must be unique"))
+	// https://github.com/scottjbarr/gohl7/blob/master/parser.go#L329
+	tmp := []byte{fs, cs, rs, ec, ss}
+	for i := 0; i < len(tmp); i++ {
+		for j := i + 1; j < len(tmp); j++ {
+			if tmp[i] == tmp[j] {
+				return nil, nil, ErrInvalidHeader(fmt.Errorf("all control characters must be unique"))
+			}
+		}
 	}
 
 	d := Delimiters{fs, cs, rs, ec, ss}
@@ -77,7 +95,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// code to parse these weird fields out.
 
 	segment = Segment{
-		Field{FieldItem{Component{Subcomponent("MSH")}}},
+		Field{FieldItem{Component{Subcomponent(HEADER_SEGMENT)}}},
 		Field{FieldItem{Component{Subcomponent(buf[3])}}},
 		Field{FieldItem{Component{Subcomponent(string(buf[4:8]))}}},
 	}
@@ -95,7 +113,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 	// TODO: find out if there are any implementations of HL7 that *actually*
 	// put more data after this header.
 	if len(buf) > 8 && buf[8] != fs {
-		return nil, nil, ErrInvalidHeader(stackerr.Newf("invalid character found after header content; expected \\x%02x but got \\x%02x", fs, buf[8]))
+		return nil, nil, ErrInvalidHeader(fmt.Errorf("invalid character found after header content; expected \\x%02x but got \\x%02x", fs, buf[8]))
 	}
 
 	// These functions are used when we encounter control characters. When we
@@ -162,7 +180,7 @@ func ParseMessage(buf []byte) (Message, *Delimiters, error) {
 		c := buf[i]
 
 		switch c {
-		case '\r':
+		case EOL_CR, EOL_NL:
 			if !sawNewline {
 				commitSegment(true)
 			}
@@ -206,19 +224,19 @@ func unescape(b []byte, d *Delimiters) []byte {
 		switch e {
 		case true:
 			switch c {
-			case 'F':
+			case ESCAPE_FIELD:
 				r[j] = d.Field
 				i++
-			case 'S':
+			case ESCAPE_COMPONENT:
 				r[j] = d.Component
 				i++
-			case 'T':
+			case ESCAPE_SUBCOMPONENT:
 				r[j] = d.Subcomponent
 				i++
-			case 'R':
+			case ESCAPE_REPETITOR:
 				r[j] = d.Repeat
 				i++
-			case 'E':
+			case ESCAPE_ESCAPE:
 				r[j] = d.Escape
 				i++
 			default:
