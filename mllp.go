@@ -9,6 +9,12 @@ import (
 	"io"
 )
 
+const (
+	MSG_PREFIX  = 0x0b
+	MSG_SUFFIX  = 0x1c
+	MSG_NEWLINE = 0x0d
+)
+
 type (
 	ErrMLLPInvalidHeader   error
 	ErrMLLPMissingTrailer  error
@@ -39,16 +45,16 @@ func (r Reader) ReadMessage(strict bool) ([]byte, error) {
 		return nil, err
 	}
 
-	if c != byte(0x0b) {
+	if c != byte(MSG_PREFIX) {
 		if strict {
-			return nil, ErrMLLPInvalidHeader(fmt.Errorf("invalid header found; expected 0x0b; got %02x", c))
+			return nil, ErrMLLPInvalidHeader(fmt.Errorf("invalid header found; expected %02x; got %02x", MSG_PREFIX, c))
 		}
 		if err := r.b.UnreadByte(); err != nil {
 			return nil, err
 		}
 	}
 
-	d, err := r.b.ReadBytes(byte(0x1c))
+	d, err := r.b.ReadBytes(byte(MSG_SUFFIX))
 	if d == nil || len(d) < 2 {
 		return nil, ErrMLLPInvalidBoundary(fmt.Errorf("content including boundary should be at least two bytes long; was %d", len(d)))
 	}
@@ -57,20 +63,20 @@ func (r Reader) ReadMessage(strict bool) ([]byte, error) {
 			return nil, ErrMLLPMissingTrailer(err)
 		}
 
-		if d[len(d)-2] != 0x0d {
-			return nil, ErrMLLPInvalidContent(fmt.Errorf("content should end with 0x0d; instead was %02x", d[len(d)-2]))
+		if d[len(d)-2] != MSG_NEWLINE {
+			return nil, ErrMLLPInvalidContent(fmt.Errorf("content should end with %02x; instead was %02x", MSG_NEWLINE, d[len(d)-2]))
 		}
 
 		t, err := r.b.ReadByte()
 		if err != nil {
 			return nil, err
 		}
-		if t != byte(0x0d) {
-			return nil, ErrMLLPMissingTrailer(fmt.Errorf("invalid trailer found; expected 0x0d; got %02x", t))
+		if t != byte(MSG_NEWLINE) {
+			return nil, ErrMLLPMissingTrailer(fmt.Errorf("invalid trailer found; expected %02x; got %02x", MSG_NEWLINE, t))
 		}
 		d = d[0 : len(d)-2]
 	} else {
-		c := bytes.IndexByte(d, byte(0x1c))
+		c := bytes.IndexByte(d, byte(MSG_SUFFIX))
 		if c != -1 {
 			d = d[0 : c-1]
 		}
@@ -98,7 +104,7 @@ func (w Writer) WriteMessage(b []byte, withBoundary bool) error {
 		b = b[n:]
 	}
 	if withBoundary {
-		if _, err := w.w.Write([]byte{0x0d, 0x1c, 0x0d}); err != nil {
+		if _, err := w.w.Write([]byte{MSG_NEWLINE, MSG_SUFFIX, MSG_NEWLINE}); err != nil {
 			return err
 		}
 	}
